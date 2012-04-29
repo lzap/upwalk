@@ -1,0 +1,3 @@
+[submodule "lib/jabberbot"]
+	path = lib/jabberbot
+	url = git://git.code.sf.net/p/pythonjabberbot/code
