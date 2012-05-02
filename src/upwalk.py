@@ -42,5 +42,5 @@ if __name__ == "__main__":
             sys.exit(2)
         sys.exit(0)
     else:
-        print "usage: %s start|stop|restart|foreground" % sys.argv[0]
+        print "usage: upwalk start|stop|restart|foreground"
         sys.exit(2)
