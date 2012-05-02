@@ -4,6 +4,7 @@ import logging
 import ConfigParser, os
 from os.path import abspath, dirname, join
 import sys, time
+import subprocess
 from daemon import Daemon
 
 logging.basicConfig()
@@ -11,14 +12,29 @@ config = ConfigParser.ConfigParser()
 config.readfp(open(join(abspath(dirname(__file__)), 'upwalk_default.conf')))
 config.read(['/etc/upwalk.conf', os.path.expanduser('~/.upwalk.conf')])
 
-class SystemInfoJabberBot(JabberBot):
-    @botcmd
-    def serverinfo( self, mess, args):
-        """Displays information about the server"""
-        version = open('/proc/version').read().strip()
-        loadavg = open('/proc/loadavg').read().strip()
+class BasePlugin(JabberBot):
+    def syscmd(self, args):
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+        result = proc.stdout.read()
+        proc.wait()
+        return result
 
-        return '%s\n\n%s' % ( version, loadavg, )
+
+class InfoPlugin(BasePlugin):
+    @botcmd
+    def uname(self, mess, args):
+        """Displays uname information"""
+        return open('/proc/version').read().strip()
+    
+    @botcmd
+    def uptime(self, mess, args):
+        """Displays uptime information"""
+        return self.syscmd(["uptime"])
+    
+    @botcmd
+    def load(self, mess, args):
+        """Displays load information"""
+        return open('/proc/loadavg').read().strip()
     
     @botcmd
     def time( self, mess, args):
@@ -26,14 +42,25 @@ class SystemInfoJabberBot(JabberBot):
         return str(datetime.datetime.now())
 
     @botcmd
-    def rot13( self, mess, args):
-        """Returns passed arguments rot13'ed"""
-        return args.encode('rot13')
-
-    @botcmd
     def whoami(self, mess, args):
         """Tells you your username"""
         return mess.getFrom().getStripped()
+ 
+class DiscPlugin(BasePlugin):
+    @botcmd
+    def df(self, mess, args):
+        """Displays disc space information"""
+        return self.syscmd(["df", "-h"])
+    
+class SelfPlugin(BasePlugin):
+    @botcmd
+    def uplog(self, mess, args):
+        """Shows several last upwalk log messages"""
+        log = config.get('daemon', 'log')
+        return self.syscmd(["tail", "-n20", log])
+    
+class UpwalkJabberBot(SelfPlugin, InfoPlugin, DiscPlugin):
+    pass
  
 class UpwalkDaemon(Daemon):
     def run(self):
@@ -41,7 +68,7 @@ class UpwalkDaemon(Daemon):
         password = config.get('connection', 'password')
         resource = config.get('connection', 'resource')
         debug = config.getboolean('connection', 'debug')
-        bot = SystemInfoJabberBot(jid, password, resource, debug)
+        bot = UpwalkJabberBot(jid, password, resource, debug)
         bot.serve_forever()
 
 if __name__ == "__main__":
